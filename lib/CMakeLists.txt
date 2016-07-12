@@ -96,14 +96,28 @@ endif()
 set_target_properties(${LIB_NAME} PROPERTIES PREFIX "")
 set_target_properties(${LIB_NAME} PROPERTIES IMPORT_PREFIX "")
 
+set_target_properties(${LIB_NAME} PROPERTIES IMPORT_PREFIX "")
+set_target_properties(${LIB_NAME} PROPERTIES  
+    INTERFACE_INCLUDE_DIRECTORIES "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>$<INSTALL_INTERFACE:include>"
+)
+
 if(WIN32)
   if(NOT CURL_STATICLIB)
     # Add "_imp" as a suffix before the extension to avoid conflicting with the statically linked "libcurl.lib"
     set_target_properties(${LIB_NAME} PROPERTIES IMPORT_SUFFIX "_imp.lib")
+  else()
+    # Add CURL_STATIC LIB to compile definitions if the libcurl is built statically
+    set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB")
   endif()
 endif()
 
 install(TARGETS ${LIB_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(TARGETS ${LIB_NAME}
+  EXPORT libcurlConfig
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)

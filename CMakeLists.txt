@@ -38,13 +38,22 @@
 # To check:
 # (From Daniel Stenberg) The cmake build selected to run gcc with -fPIC on my box while the plain configure script did not.
 # (From Daniel Stenberg) The gcc command line use neither -g nor any -O options. As a developer, I also treasure our configure scripts's --enable-debug option that sets a long range of "picky" compiler options.
-cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 include(Utilities)
 include(Macros)
 include(CMakeDependentOption)
 
+include(CMake/HunterGate.cmake)
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.14.28.tar.gz"
+    SHA1 "2edf707a6df484d9e7509ce22e012c699ba60350"
+    
+)
+
 project( CURL C )
+
+
 
 message(WARNING "the curl cmake build system is poorly maintained. Be aware")
 
@@ -310,6 +319,7 @@ set(HAVE_LIBCRYPTO OFF)
 set(HAVE_LIBSSL OFF)
 
 if(CMAKE_USE_OPENSSL)
+  hunter_add_package(OpenSSL)
   find_package(OpenSSL)
   if(OPENSSL_FOUND)
     list(APPEND CURL_LIBS ${OPENSSL_LIBRARIES})
@@ -459,6 +469,7 @@ set(HAVE_LIBZ OFF)
 set(HAVE_ZLIB_H OFF)
 set(HAVE_ZLIB OFF)
 if(CURL_ZLIB)
+  hunter_add_package(ZLIB)
   find_package(ZLIB QUIET)
   if(ZLIB_FOUND)
     set(HAVE_ZLIB_H ON)
@@ -478,6 +489,7 @@ set(HAVE_LIBSSH2 OFF)
 set(HAVE_LIBSSH2_H OFF)
 
 if(CMAKE_USE_LIBSSH2)
+  hunter_add_package(LibSSH2)
   find_package(LibSSH2)
   if(LIBSSH2_FOUND)
     list(APPEND CURL_LIBS ${LIBSSH2_LIBRARY})
@@ -1029,9 +1041,9 @@ function(TRANSFORM_MAKEFILE_INC INPUT_FILE OUTPUT_FILE)
   string(REPLACE "$(top_srcdir)"   "\${CURL_SOURCE_DIR}" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
   string(REPLACE "$(top_builddir)" "\${CURL_BINARY_DIR}" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
 
-  string(REGEX REPLACE "\\\\\n" "§!§" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
+  string(REGEX REPLACE "\\\\\n" "ï¿½!ï¿½" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
   string(REGEX REPLACE "([a-zA-Z_][a-zA-Z0-9_]*)[\t ]*=[\t ]*([^\n]*)" "SET(\\1 \\2)" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
-  string(REPLACE "§!§" "\n" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
+  string(REPLACE "ï¿½!ï¿½" "\n" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})
 
   string(REGEX REPLACE "\\$\\(([a-zA-Z_][a-zA-Z0-9_]*)\\)" "\${\\1}" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})    # Replace $() with ${}
   string(REGEX REPLACE "@([a-zA-Z_][a-zA-Z0-9_]*)@" "\${\\1}" MAKEFILE_INC_TEXT ${MAKEFILE_INC_TEXT})    # Replace @@ with ${}, even if that may not be read by CMake scripts.
@@ -1204,3 +1216,38 @@ if(MSVC_VERSION EQUAL 1600)
     file(APPEND "${CURL_SLN_FILENAME}" "\n# This should be regenerated!\n")
   endif()
 endif()
+  
+
+
+
+
+if(CMAKE_VERSION VERSION_GREATER 3.0)
+
+  #generate Config.cmake files
+  set(config_install_dir "lib/cmake/${PROJECT_NAME}")
+  set(config_gen_dir "${CMAKE_CURRENT_BINARY_DIR}/gen")
+  set(cfg_version "${PROJECT_NAME}ConfigVersion.cmake")
+  set(cfg_file "${PROJECT_NAME}Config.cmake")
+
+  ## During build, register directly from build tree
+  export(TARGETS libcurl NAMESPACE curl:: FILE "${cfg_file}")
+
+  install(EXPORT libcurlConfig NAMESPACE curl:: FILE "${cfg_file}" DESTINATION "${config_install_dir}")
+
+  include(CMakePackageConfigHelpers)
+  WRITE_BASIC_PACKAGE_VERSION_FILE("${config_gen_dir}/${cfg_version}" VERSION ${CURL_VERSION} COMPATIBILITY SameMajorVersion)
+
+  ## During package installation, install CurlConfigVersion.cmake
+  install(FILES "${config_gen_dir}/${cfg_version}" DESTINATION "${config_install_dir}")
+
+endif()
+
+#CPACK STUFF
+
+set(CPACK_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
+set(CPACK_PACKAGE_VERSION ${CURL_VERSION})
+set(CPACK_PACKAGE_RELEASE 1)
+set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
+
+set(CPACK_GENERATOR "TBZ2")
+include(CPack)
