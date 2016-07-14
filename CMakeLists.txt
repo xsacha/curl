@@ -38,7 +38,7 @@
 # To check:
 # (From Daniel Stenberg) The cmake build selected to run gcc with -fPIC on my box while the plain configure script did not.
 # (From Daniel Stenberg) The gcc command line use neither -g nor any -O options. As a developer, I also treasure our configure scripts's --enable-debug option that sets a long range of "picky" compiler options.
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 include(Utilities)
 include(Macros)
@@ -64,6 +64,7 @@ string (REGEX REPLACE "[^\"]+\"" "" CURL_VERSION ${CURL_VERSION})
 string (REGEX MATCH "#define LIBCURL_VERSION_NUM 0x[0-9a-fA-F]+"
   CURL_VERSION_NUM ${CURL_VERSION_H_CONTENTS})
 string (REGEX REPLACE "[^0]+0x" "" CURL_VERSION_NUM ${CURL_VERSION_NUM})
+SET(PROJECT_VERSION ${CURL_VERSION})
 
 include_regular_expression("^.*$")    # Sukender: Is it necessary?
 
@@ -81,8 +82,15 @@ set(OS "\"${CMAKE_SYSTEM_NAME}\"")
 include_directories(${PROJECT_BINARY_DIR}/include/curl)
 include_directories( ${CURL_SOURCE_DIR}/include )
 
-option(BUILD_CURL_EXE "Set to ON to build curl executable." ON)
-option(CURL_STATICLIB "Set to ON to build libcurl with static linking." OFF)
+option(BUILD_CURL_EXE "Set to ON to build cURL executable." ON)
+option(BUILD_TESTING "Set to ON to build cURL tests." ON)
+
+if(CURL_STATICLIB)
+  #cope with legacy cmakefile not adhering to cmake standards
+  set(BUILD_SHARED_LIBS OFF)
+endif()
+option(BUILD_SHARED_LIBS "Set to ON to build libcurl with shared, off for static linking" ON)
+
 option(ENABLE_ARES "Set to ON to enable c-ares support" OFF)
 if(WIN32)
   CMAKE_DEPENDENT_OPTION(ENABLE_THREADED_RESOLVER
@@ -94,6 +102,11 @@ else()
 endif()
 option(ENABLE_DEBUG "Set to ON to enable curl debug features" OFF)
 option(ENABLE_CURLDEBUG "Set to ON to build with TrackMemory feature enabled" OFF)
+
+
+
+
+
 
 if (ENABLE_DEBUG)
   # DEBUGBUILD will be defined only for Debug builds
@@ -475,7 +488,7 @@ if(CURL_ZLIB)
     set(HAVE_ZLIB_H ON)
     set(HAVE_ZLIB ON)
     set(HAVE_LIBZ ON)
-    list(APPEND CURL_LIBS ${ZLIB_LIBRARIES})
+    list(APPEND CURL_LIBS ZLIB::zlib)
     include_directories(${ZLIB_INCLUDE_DIRS})
     list(APPEND CMAKE_REQUIRED_INCLUDES ${ZLIB_INCLUDE_DIRS})
   endif()
@@ -1051,6 +1064,23 @@ function(TRANSFORM_MAKEFILE_INC INPUT_FILE OUTPUT_FILE)
 
 endfunction()
 
+
+#add config installation location parameters before includeing subdirectories
+# Layout. This works for all platforms:
+#   * <prefix>/lib/cmake/<PROJECT-NAME>
+#   * <prefix>/lib/
+#   * <prefix>/include/
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
+set(include_install_dir "include")
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+# Configuration
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+
 add_subdirectory(lib)
 if(BUILD_CURL_EXE)
   add_subdirectory(src)
@@ -1150,7 +1180,7 @@ set(CPPFLAG_CURL_STATICLIB  "")
 set(CURL_CA_BUNDLE          "")
 set(CURLVERSION             "${CURL_VERSION}")
 set(ENABLE_SHARED           "yes")
-if(CURL_STATICLIB)
+if(NOT BUILD_SHARED_LIBS)
   set(ENABLE_STATIC         "yes")
 else()
   set(ENABLE_STATIC         "no")
@@ -1221,31 +1251,42 @@ endif()
 
 
 
-if(CMAKE_VERSION VERSION_GREATER 3.0)
+if(NOT CMAKE_VERSION VERSION_LESS 3.0)
 
-  #generate Config.cmake files
-  set(config_install_dir "lib/cmake/${PROJECT_NAME}")
-  set(config_gen_dir "${CMAKE_CURRENT_BINARY_DIR}/gen")
-  set(cfg_version "${PROJECT_NAME}ConfigVersion.cmake")
-  set(cfg_file "${PROJECT_NAME}Config.cmake")
+ include(CMakePackageConfigHelpers)
+ write_basic_package_version_file("${version_config}" COMPATIBILITY SameMajorVersion)
 
-  ## During build, register directly from build tree
-  export(TARGETS libcurl NAMESPACE curl:: FILE "${cfg_file}")
 
-  install(EXPORT libcurlConfig NAMESPACE curl:: FILE "${cfg_file}" DESTINATION "${config_install_dir}")
+# Use variables:
+#   * targets_export_name
+#   * PROJECT_NAME
+configure_package_config_file(
+    "CMake/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
 
-  include(CMakePackageConfigHelpers)
-  WRITE_BASIC_PACKAGE_VERSION_FILE("${config_gen_dir}/${cfg_version}" VERSION ${CURL_VERSION} COMPATIBILITY SameMajorVersion)
+#   * <prefix>/lib/cmake/Foo/FooConfig.cmake
+#   * <prefix>/lib/cmake/Foo/FooConfigVersion.cmake
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
 
-  ## During package installation, install CurlConfigVersion.cmake
-  install(FILES "${config_gen_dir}/${cfg_version}" DESTINATION "${config_install_dir}")
+# Config
+#   * <prefix>/lib/cmake/Foo/FooTargets.cmake
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
 
 endif()
 
 #CPACK STUFF
 
 set(CPACK_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
-set(CPACK_PACKAGE_VERSION ${CURL_VERSION})
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_PACKAGE_RELEASE 1)
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
 
