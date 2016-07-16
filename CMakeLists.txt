@@ -1,4 +1,4 @@
-#***************************************************************************
+﻿#***************************************************************************
 #                                  _   _ ____  _
 #  Project                     ___| | | |  _ \| |
 #                             / __| | | | |_) | |
@@ -502,7 +502,7 @@ set(HAVE_LIBSSH2 OFF)
 set(HAVE_LIBSSH2_H OFF)
 
 if(CMAKE_USE_LIBSSH2)
-  hunter_add_package(LibSSH2)
+  hunter_add_package(Libssh2)
   find_package(LibSSH2)
   if(LIBSSH2_FOUND)
     list(APPEND CURL_LIBS ${LIBSSH2_LIBRARY})
