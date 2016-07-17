@@ -503,12 +503,15 @@ set(HAVE_LIBSSH2_H OFF)
 
 if(CMAKE_USE_LIBSSH2)
   hunter_add_package(Libssh2)
-  find_package(LibSSH2)
-  if(LIBSSH2_FOUND)
-    list(APPEND CURL_LIBS ${LIBSSH2_LIBRARY})
-    set(CMAKE_REQUIRED_LIBRARIES ${LIBSSH2_LIBRARY})
+
+  # when building static lib this may need to be linked with OpenSSL too. 
+  # ideally the find_package would use CONFIG if it could to use the Libssh2CONFIG.cmake file, but that is not always installed.
+  find_package(Libssh2 CONFIG REQUIRED)
+    list(APPEND CURL_LIBS Libssh2::libssh2)
+    set(CMAKE_REQUIRED_LIBRARIES Libssh2::libssh2)
+    find_path (LIBSSH2_INCLUDE_DIR "libssh2.h")
     list(APPEND CMAKE_REQUIRED_INCLUDES "${LIBSSH2_INCLUDE_DIR}")
-    include_directories("${LIBSSH2_INCLUDE_DIR}")
+
     set(HAVE_LIBSSH2 ON)
     set(USE_LIBSSH2 ON)
 
@@ -526,7 +529,6 @@ if(CMAKE_USE_LIBSSH2)
     check_function_exists(libssh2_session_handshake HAVE_LIBSSH2_SESSION_HANDSHAKE)
     set(CMAKE_EXTRA_INCLUDE_FILES "")
 
-  endif(LIBSSH2_FOUND)
 endif(CMAKE_USE_LIBSSH2)
 
 option(CMAKE_USE_GSSAPI "Use GSSAPI implementation (right now only Heimdal is supported with CMake build)" OFF)
