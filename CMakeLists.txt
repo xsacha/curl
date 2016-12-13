@@ -83,7 +83,7 @@ include_directories(${PROJECT_BINARY_DIR}/include/curl)
 include_directories( ${CURL_SOURCE_DIR}/include )
 
 option(BUILD_CURL_EXE "Set to ON to build cURL executable." ON)
-option(BUILD_TESTING "Set to ON to build cURL tests." ON)
+option(BUILD_CURL_TESTS "Set to ON to build cURL tests." ON)
 
 if(CURL_STATICLIB)
   #cope with legacy cmakefile not adhering to cmake standards
@@ -1096,7 +1096,7 @@ if(BUILD_CURL_EXE)
 endif()
 
 include(CTest)
-if(BUILD_TESTING)
+if(BUILD_CURL_TESTS)
   add_subdirectory(tests)
 endif()
 
