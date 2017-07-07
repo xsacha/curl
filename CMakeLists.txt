@@ -907,12 +907,17 @@ endforeach(CURL_TEST)
 if(HAVE_FILE_OFFSET_BITS)
   set(_FILE_OFFSET_BITS 64)
 endif(HAVE_FILE_OFFSET_BITS)
-foreach(CURL_TEST
-    HAVE_GLIBC_STRERROR_R
-    HAVE_POSIX_STRERROR_R
-    )
-  curl_internal_test_run(${CURL_TEST})
-endforeach(CURL_TEST)
+
+if(NOT IOS AND NOT ANDROID)
+  foreach(CURL_TEST
+      HAVE_GLIBC_STRERROR_R
+      HAVE_POSIX_STRERROR_R
+      )
+    curl_internal_test_run(${CURL_TEST})
+  endforeach(CURL_TEST)
+else()
+  set(HAVE_POSIX_STRERROR_R 1)
+endif()
 
 # Check for reentrant
 foreach(CURL_TEST
